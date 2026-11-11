@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,105 +7,98 @@ import {
   SafeAreaView,
   Platform,
   StatusBar as RNStatusBar,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { Product } from './src/types/product';
-import { getProducts } from './src/api/fakeStoreApi';
-import { ProductCard } from './src/components/ProductCard';
-import { ProductDetail } from './src/components/ProductDetail';
-import { LoadingView } from './src/components/LoadingView';
-import { ErrorView } from './src/components/ErrorView';
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { Producto } from "./src/types/producto";
+import { obtenerProductos } from "./src/api/tiendaApi";
+import { TarjetaProducto } from "./src/components/TarjetaProducto";
+import { DetalleProducto } from "./src/components/DetalleProducto";
+import { VistaCarga } from "./src/components/VistaCarga";
+import { VistaError } from "./src/components/VistaError";
 
 export default function App() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [productos, setProductos] = useState<Producto[]>([]);
+  const [cargando, setCargando] = useState<boolean>(true);
+  const [actualizando, setActualizando] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [productoSeleccionado, setProductoSeleccionado] =
+    useState<Producto | null>(null);
 
-  /**
-   * Carga los productos desde Fake Store API mediante Axios
-   * y los almacena una vez transformados por el mapper.
-   */
-  const loadProducts = useCallback(async (isPullToRefresh: boolean = false) => {
-    if (isPullToRefresh) {
-      setRefreshing(true);
+  const cargarDatos = useCallback(async (esRecarga: boolean = false) => {
+    if (esRecarga) {
+      setActualizando(true);
     } else {
-      setLoading(true);
+      setCargando(true);
     }
     setError(null);
 
     try {
-      const data = await getProducts();
-      setProducts(data);
+      const datos = await obtenerProductos();
+      setProductos(datos);
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError('Ocurrió un error inesperado al procesar la solicitud.');
+        setError("Ocurrió un error al cargar los datos.");
       }
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setCargando(false);
+      setActualizando(false);
     }
   }, []);
 
   useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+    cargarDatos();
+  }, [cargarDatos]);
 
-  // Selección de producto para ver detalle
-  const handleSelectProduct = (product: Product) => {
-    setSelectedProduct(product);
+  const seleccionarProducto = (producto: Producto) => {
+    setProductoSeleccionado(producto);
   };
 
-  // Regreso a la lista de productos
-  const handleBackToList = () => {
-    setSelectedProduct(null);
+  const volverAlCatalogo = () => {
+    setProductoSeleccionado(null);
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={estilos.areaSegura}>
       <StatusBar style="dark" />
 
-      {/* Requerimiento 5: Vista de detalle al pulsar una tarjeta */}
-      {selectedProduct ? (
-        <ProductDetail
-          product={selectedProduct}
-          onBack={handleBackToList}
+      {productoSeleccionado ? (
+        <DetalleProducto
+          producto={productoSeleccionado}
+          alVolver={volverAlCatalogo}
         />
       ) : (
-        <View style={styles.container}>
-          {/* Cabecera de la aplicación */}
-          <View style={styles.header}>
-            <Text style={styles.headerSubtitle}>UNTRM • PAM UD2</Text>
-            <Text style={styles.headerTitle}>Catálogo de Productos</Text>
+        <View style={estilos.contenedor}>
+          <View style={estilos.encabezado}>
+            <Text style={estilos.titulo}>Catálogo de Productos</Text>
           </View>
 
-          {/* Requerimiento 2: Indicador de carga */}
-          {loading && !refreshing ? (
-            <LoadingView message="Obteniendo productos de Fake Store API..." />
-          ) : error && products.length === 0 ? (
-            /* Requerimiento 2: Mensaje legible ante fallo con reintento */
-            <ErrorView message={error} onRetry={() => loadProducts(false)} />
+          {cargando && !actualizando ? (
+            <VistaCarga mensaje="Cargando productos..." />
+          ) : error && productos.length === 0 ? (
+            <VistaError
+              mensaje={error}
+              alReintentar={() => cargarDatos(false)}
+            />
           ) : (
-            /* Requerimiento 4: Lista desplazable de tarjetas (imagen, nombre, precio) */
             <FlatList
-              data={products}
+              data={productos}
               keyExtractor={(item) => item.id.toString()}
               renderItem={({ item }) => (
-                <ProductCard
-                  product={item}
-                  onPress={handleSelectProduct}
+                <TarjetaProducto
+                  producto={item}
+                  alPresionar={seleccionarProducto}
                 />
               )}
-              contentContainerStyle={styles.listContent}
-              refreshing={refreshing}
-              onRefresh={() => loadProducts(true)}
-              showsVerticalScrollIndicator={false}
+              contentContainerStyle={estilos.lista}
+              refreshing={actualizando}
+              onRefresh={() => cargarDatos(true)}
               ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>No hay productos disponibles.</Text>
+                <View style={estilos.vacio}>
+                  <Text style={estilos.textoVacio}>
+                    No hay productos disponibles.
+                  </Text>
                 </View>
               }
             />
@@ -116,47 +109,37 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
+const estilos = StyleSheet.create({
+  areaSegura: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
+    backgroundColor: "#fff",
+    paddingTop: Platform.OS === "android" ? RNStatusBar.currentHeight : 0,
   },
-  container: {
+  contenedor: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: "#f5f5f5",
   },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 14,
-    backgroundColor: '#ffffff',
+  encabezado: {
+    padding: 14,
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: "#ccc",
+    alignItems: "center",
   },
-  headerSubtitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2563eb',
-    letterSpacing: 1,
-    marginBottom: 4,
+  titulo: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#000",
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0f172a',
+  lista: {
+    padding: 10,
   },
-  listContent: {
-    padding: 16,
-    paddingBottom: 24,
+  vacio: {
+    padding: 20,
+    alignItems: "center",
   },
-  emptyContainer: {
-    padding: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#64748b',
+  textoVacio: {
+    fontSize: 14,
+    color: "#666",
   },
 });
